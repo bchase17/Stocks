@@ -1,0 +1,11 @@
+horizon,feature_set
+2,ma_no_rel-rsi
+2,ma_no_rel
+5,ma_lag
+5,ma_lag-rsi
+10,ma_no_rel
+10,ma_lag
+20,ma_no_rel
+20,ma
+30,ma_no_rel
+30,ma_no_rel
