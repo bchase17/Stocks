@@ -318,10 +318,18 @@ def experimental_slope(df):
     md = tp.rolling(window=14).apply(lambda x: np.mean(np.abs(x - np.mean(x))))
     df['CCI_14'] = ((tp - ma) / (0.015 * md)).round(3)
 
+    ma = tp.rolling(window=5).mean()
+    md = tp.rolling(window=5).apply(lambda x: np.mean(np.abs(x - np.mean(x))))
+    df['CCI_5'] = ((tp - ma) / (0.015 * md)).round(3)
+
     # Williams %R
     highest_high = df['High'].rolling(window=14).max()
     lowest_low = df['Low'].rolling(window=14).min()
     df['Williams_%R_14'] = ((highest_high - df['Close']) / (highest_high - lowest_low) * -100).round(3)
+
+    highest_high = df['High'].rolling(window=5).max()
+    lowest_low = df['Low'].rolling(window=5).min()
+    df['Williams_%R_5'] = ((highest_high - df['Close']) / (highest_high - lowest_low) * -100).round(3)
 
     # Z-scores
     zs = [5, 10, 25, 50]
