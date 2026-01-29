@@ -90,10 +90,6 @@ def rsi(df):
     difs = [1, 3, 5]
     for dif in difs:
         df[f'RSI_14_{dif}'] = RSI(df, 14, dif)
-        df[f'RSI_14_{dif}'] = RSI(df, 14, dif)
-        df[f'RSI_14_{dif}'] = RSI(df, 14, dif)
-        df[f'RSI_21_{dif}'] = RSI(df, 21, dif)
-        df[f'RSI_21_{dif}'] = RSI(df, 21, dif)
         df[f'RSI_21_{dif}'] = RSI(df, 21, dif)
 
     return df
@@ -133,7 +129,7 @@ def volume(df):
         ratio[up == 0] = 0  # More direct than re-rolling
 
         df[f'Vol_Ratio_{w}'] = ratio.round(3)
-        df[f'Vol_Ratio_{w}'] = ((ratio - ratio.rolling(z).mean()) / ratio.rolling(z).std()).round(3)
+        df[f'Vol_Ratio_{w}_zscore'] = ((ratio - ratio.rolling(z).mean()) / ratio.rolling(z).std()).round(3)
 
     # Chaikin Money Flow (CMF)
     def CMF(data, period=20):
@@ -259,7 +255,6 @@ def vix_skew(df):
     vix_data['Date'] = pd.to_datetime(vix_data['Date']).dt.strftime('%Y-%m-%d')
     vix_data['VIX'] = vix_data['Close']
 
-    ['VIX_5_change', 'VIX_crossover', 'VIX_1_change']
     # Convert the Date column to 'YYYY-MM-DD' format (if not already)
     vix_data = vix_data.sort_index(ascending=True)
     vix_data['VIX_rolling_std'] = vix_data['VIX'].rolling(window=5).std().round(1)
@@ -286,7 +281,6 @@ def vix_skew(df):
     skew_data['Date'] = pd.to_datetime(skew_data['Date']).dt.strftime('%Y-%m-%d')
     skew_data['skew'] = skew_data['Close']
 
-    ['skew_5_change', 'skew_crossover', 'skew_1_change']
     # Convert the Date column to 'YYYY-MM-DD' format (if not already)
     skew_data = skew_data.sort_index(ascending=True)
     skew_data['skew_rolling_std'] = skew_data['skew'].rolling(window=5).std().round(1)
@@ -376,6 +370,7 @@ def generate_returns(df, returns):
         
         past_return = (df['Close'] - df['Close'].shift(days)) / df['Close']
         df[f'Past_Return_{days}'] = (past_return > 0).astype(int)
+        df[f'Past_Return%_{days}'] = past_return
 
         return df
 
@@ -457,6 +452,8 @@ def pull_daily(ticker, returns):
 
     # merge returns and features table into one df
     df_merged = pd.merge(ma_df, df_returns[[col for col in df_returns.columns if col.startswith('Return')] + ['Date']], on='Date') 
+    df_merged = pd.merge(ma_df, df_returns, on='Date') 
+    df_merged = pd.merge(ma_df, df_returns[[c for c in df_returns.columns if "Return" in c] + ['Date']], on='Date') 
 
     # merge challengers, skipping duplicates
     for feature_set in feature_sets:
