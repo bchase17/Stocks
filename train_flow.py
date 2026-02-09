@@ -292,7 +292,7 @@ def perm_list(
         m,
         X_pi,
         y_pi,
-        scoring="neg_log_loss",   # or "accuracy", "neg_log_loss", etc.
+        scoring="balanced_accuracy",   # or "accuracy", "neg_log_loss", etc.
         n_repeats=10,
         random_state=42,
         n_jobs=-1,
@@ -308,7 +308,7 @@ def perm_list(
     if feat_type != "New":
 
         # keep only features with PI > 0
-        pi_cols = pi_df['feature'][pi_df['pi_mean'] > .01].to_list()
+        pi_cols = pi_df['feature'][pi_df['pi_mean'] > .03].to_list()
 
         if len(feature_cols) > 10:
             
