@@ -63,9 +63,10 @@ def import_data(ticker, minute_feats, returns):
 
     sets = [ma_lag, ma_rel, ma_sma, ma_num, rsi_cols + macd_cols, volu_cols, atr_adx_cols + vola_cols, vix_skew_cols, experimental_slope_cols]
     set_names = ["ma_lag", "ma_rel", "ma_sma", "ma_num", "rsi_macd", "volu", "atr_adx" + "vola", "vix_skew", "experimental_slope"]
+    feature_sets = dict(zip(set_names,sets))
     feature_master_list = [x for sub in sets for x in sub]
 
-    return df_daily, feature_sets, return_cols, daily_cols, sets, set_names, feature_master_list
+    return df_daily, feature_sets, return_cols, daily_cols, feature_sets, feature_master_list
 
 def _compute_dist(y):
     """Distribution stats for y in {0,1}."""
