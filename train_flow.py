@@ -14,9 +14,10 @@ warnings.filterwarnings("ignore", category=UserWarning)
 importlib.reload(min_features)
 importlib.reload(daily_return)
 
-def import_data(ticker, min_feats, returns):
+def import_data(ticker, minute_feats, returns):
 
-    if min_feats != 'N':
+    if minute_feats != 'N':
+
         df_min = min_features.min_features()
         df_daily, feature_sets = daily_return.pull_daily(ticker, returns) 
 
