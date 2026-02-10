@@ -132,7 +132,7 @@ def run_performance(perf_df, min_th, cov_th):
         .head(10)
     )
 
-    return top_by_horizon
+    return top_by_horizon.round(2)
 
 def flip_bucket_tables_multi_dual(
     df_daily,
@@ -298,13 +298,14 @@ def flip_bucket_tables_multi_dual(
     all_out = pd.concat(by_r.values(), ignore_index=True)
     return by_r, all_out, other
 
-def bucket_scores(df_daily, perf_df, returns):
+def bucket_scores(df_daily, perf_df, returns, min_th):
 
     # ---- usage ----
     by_r, all_out, d = flip_bucket_tables_multi_dual(
         df_daily=df_daily,
         perf_df=perf_df,
         returns=returns,
+        min_th=min_th,
         K=3,
     )
 
@@ -324,4 +325,8 @@ def bucket_scores(df_daily, perf_df, returns):
         .head(10)
     )
 
-    return top_by_horizon
+    perf_columns = ['horizon', 'model', 'train_years', 'feature_set', 'pi_size', 'min_feats',
+                'n_1_c', 'n_-1_c', 'acc_1_c', 'acc_-1_c',
+                 'bal_acc_1_o', 'bal_acc_2_o', 'bal_acc_3_o', 'bal_acc_3p_o', 'wba_open', 'wba_close']
+
+    return top_by_horizon[perf_columns].round(2)
