@@ -132,6 +132,8 @@ def walkback_runs(
         
         dates = dfw[date_col].to_numpy() if date_col in dfw.columns else None
         dfpi = dfw[train_start:train_end].copy()
+        new_features = new_features or []
+        base_feature_cols = list(feature_cols)
 
         for model_name, model in models.items():
 
@@ -141,7 +143,7 @@ def walkback_runs(
 
                     if pi_handling == 'exclude_new':
 
-                        feature_cols = [c for c in feature_cols if c not in new_features]
+                        feat = [c for c in base_feature_cols if c not in new_features]
 
                         perm_cols, p_df = perm_list(
                             df=dfpi,
@@ -154,11 +156,12 @@ def walkback_runs(
                         )
 
                         perm_cols += new_features
+                        perm_cols = list(dict.fromkeys(perm_cols + new_features))
                         print(f"{len(feature_cols)} | {len(perm_cols)} | {sorted(perm_cols)}")
 
                     elif pi_handling == 'run_separately':
                         
-                        feature_cols = [c for c in feature_cols if c not in new_features]
+                        feat = [c for c in base_feature_cols if c not in new_features]
 
                         perm_cols, p_df = perm_list(
                             df=dfpi,
@@ -184,6 +187,7 @@ def walkback_runs(
                         print(f"{len(feature_cols)} | {len(perm_cols)} | Original Cols: {sorted(perm_cols)}")
                         print(f"{len(feature_cols)} | {len(perm_cols)} | New Cols: {sorted(new_perm_cols)}")
                         perm_cols += new_perm_cols
+                        perm_cols = list(dict.fromkeys(perm_cols + new_features))
 
                     elif pi_handling == 'include_new':
 
@@ -297,7 +301,7 @@ def perm_list(
 ):
 
     dfw = df.sort_values("Date").reset_index(drop=True).copy()
-
+    
     # Drop any accidental return cols from features (belt+suspenders)
     safe_feature_cols = [c for c in feature_cols if not (c.startswith("Return"))]
 
@@ -395,7 +399,7 @@ def run_train_flow(test_day, days_assessed, returns, pi_handlings, feature_cols,
             for train_year in train_years:
 
                 print(f"Running for horizon {r} | {pi_handling}")
-                base_cols += new_features
+                base_cols = list(dict.fromkeys(base_cols + new_features))
 
                 df_scores, perm_df = walkback_runs(
                     df=df_final,
