@@ -23,10 +23,15 @@ def _metrics(y_col, p_col, min_th, cov_th, g: pd.DataFrame) -> pd.Series:
 
     y = g[y_col].astype(int).to_numpy()
     p = _clip01(g[p_col].to_numpy())
-    records = round(int(len(y)), 0)
 
-    # hard preds at 0.5
-    yhat = (p > min_th).astype(int)
+    yhat = np.where(p >= min_th, 1, np.where(p <= (1 - min_th), 0, np.nan))
+
+    # keep only confident predictions (>=min_th in either direction)
+    conf = ~np.isnan(yhat)
+    y = y[conf]
+    p = p[conf]
+    yhat = yhat[conf].astype(int)
+    records = int(len(y))
 
     # confident subset mask
     sel = (p >= cov_th) | (p <= (1-cov_th))
@@ -133,6 +138,7 @@ def flip_bucket_tables_multi_dual(
     df_daily,
     perf_df,
     returns,
+    min_th,
     *,
     K=3,
     date_col="Date",
@@ -242,6 +248,15 @@ def flip_bucket_tables_multi_dual(
             perf_r = perf_filter(perf_r)
 
         d = df_r.merge(perf_r, on=date_col, how="inner")
+
+        d["y"] = d[ret_col].astype("int8")
+        d["p"] = d["pred"].astype(float)
+        d["yhat"] = np.where(
+        d["p"] >= min_th, 1,
+        np.where(d["p"] <= (1 - min_th), 0, np.nan)
+        )
+
+        d = d.dropna(subset=["yhat"]).copy()
 
         other = perf_r.copy()
         # bucket both contexts
