@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.inspection import permutation_importance
 import warnings
 from xgboost import XGBClassifier
+from collections import defaultdict
 warnings.filterwarnings("ignore", message="y_pred contains classes not in y_true")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -106,6 +107,7 @@ def walkback_runs(
     Returns: long DataFrame with one row per (feature_set/run/model).
     """
     rows = []
+    pi_acc = defaultdict(lambda: {"pi_sum": 0.0, "count": 0})
 
     for k in range(runs):
 
@@ -140,7 +142,7 @@ def walkback_runs(
 
                         feature_cols = [c for c in feature_cols if c not in new_features]
 
-                        perm_cols = perm_list(
+                        perm_cols, p_df = perm_list(
                             df=dfpi,
                             feature_cols=feature_cols,
                             target_col=target_col,
@@ -157,7 +159,7 @@ def walkback_runs(
                         
                         feature_cols = [c for c in feature_cols if c not in new_features]
 
-                        perm_cols = perm_list(
+                        perm_cols, p_df = perm_list(
                             df=dfpi,
                             feature_cols=feature_cols,
                             target_col=target_col,
@@ -167,7 +169,7 @@ def walkback_runs(
                             min_feats=min_feat
                         )
 
-                        new_perm_cols = perm_list(
+                        new_perm_cols, p_df = perm_list(
                             df=dfpi,
                             feature_cols=new_features,
                             target_col=target_col,
@@ -184,7 +186,7 @@ def walkback_runs(
 
                     elif pi_handling == 'include_new':
 
-                        perm_cols = perm_list(
+                        perm_cols, p_df = perm_list(
                             df=dfpi,
                             feature_cols=feature_cols,
                             target_col=target_col,
@@ -251,8 +253,35 @@ def walkback_runs(
                         "pi_size": pi_year,
                         "min_feats": min_feat
                     })
+
+                    key_base = (model_name, len(safe_feature_cols), pi_year, min_feat, train_years)
+
+                    for col, pi in zip(p_df["feature"], p_df["pi_mean"]):
+                        key = key_base + (col,)
+                        pi_acc[key]["pi_sum"] += float(pi)
+                        pi_acc[key]["count"] += 1
+
+    pi_rollup = (
+        pd.DataFrame([
+            {
+                "model": key[0],
+                "n_features": key[1],
+                "pi_size": key[2],
+                "min_feats": key[3],
+                "train_years": key[4],
+                "col_name": key[5],
+                "pi_sum": v["pi_sum"],
+                "count": v["count"],
+                "pi_avg": v["pi_sum"] / v["count"],
+            }
+            for key, v in pi_acc.items()
+        ])
+        .sort_values(["model","train_years","n_features","pi_size","min_feats","pi_sum"],
+                    ascending=[True,True,True,True,True,False])
+        .reset_index(drop=True)
+    )
         
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), pi_rollup
 
 def perm_list(
     df,
@@ -310,6 +339,7 @@ def perm_list(
 
         # keep only features with PI > 0
         pi_cols = pi_df['feature'][pi_df['pi_mean'] > .03].to_list()
+        perm_df = pi_df[['feature', 'pi_mean']][pi_df['pi_mean'] > 0.03]
 
         if len(feature_cols) > 10:
             
@@ -319,6 +349,8 @@ def perm_list(
                         .head(min_feats)["feature"]
                         .tolist()
                 )
+            
+            perm_df = pi_df[['feature', 'pi_mean']].sort_values("pi_mean", ascending=False).head(min_feats)
     
     else:
 
@@ -335,13 +367,15 @@ def perm_list(
     #print(pi_df.sort_values("pi_mean", ascending=False))
     #print(f"Ran permutation importance for horizon {purge_days} | Len: {N_PI} | Old: {len(feature_cols)} | New: {len(pi_cols)}")
     
-    return pi_cols
+    return pi_cols, perm_df
 
 def run_train_flow(test_day, days_assessed, returns, pi_handlings, feature_cols, df, models,
                    train_years, pi_years, min_feats, list_name, new_features):
 
     results= []
+    perm_results= []
     results_df = pd.DataFrame()
+    perm_df = pd.DataFrame()
     runs = int(days_assessed / test_day)
 
     for pi_handling in pi_handlings:
@@ -362,7 +396,7 @@ def run_train_flow(test_day, days_assessed, returns, pi_handlings, feature_cols,
                 print(f"Running for horizon {r} | {pi_handling}")
                 base_cols += new_features
 
-                df_scores = walkback_runs(
+                df_scores, perm_df = walkback_runs(
                     df=df_final,
                     models=models,
                     feature_cols=base_cols,
@@ -382,12 +416,16 @@ def run_train_flow(test_day, days_assessed, returns, pi_handlings, feature_cols,
 
                 df_scores["feature_set"] = list_name
                 df_scores["horizon"] = r
+                perm_df["feature_set"] = f"kitch_sink_ba"
+                perm_df["horizon"] = r
 
                 results.append(df_scores)
+                perm_results.append(perm_df)
 
     results_df = pd.concat(results, ignore_index=True)
+    perm_df = pd.concat(perm_results, ignore_index=True)
 
-    return results_df
+    return results_df, perm_df.sort_values(by=["horizon", "feature_set", "pi_sum"], ascending=(True, True, False))
 
 def pi_handling_test(pi_handlings):
 
