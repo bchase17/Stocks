@@ -129,7 +129,7 @@ def run_performance(perf_df, min_th, cov_th):
         metrics_df
         .sort_values(["horizon", "composite", "log_loss"], ascending=[True, False, False])
         .groupby("horizon", as_index=False, sort=False)
-        .head(30)
+        .head(1000)
     )
 
     return top_by_horizon.round(2)
