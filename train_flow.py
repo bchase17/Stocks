@@ -147,7 +147,7 @@ def walkback_runs(
 
                         perm_cols, p_df = perm_list(
                             df=dfpi,
-                            feature_cols=feature_cols,
+                            feature_cols=feat,
                             target_col=target_col,
                             model=model,
                             fill_inf=0.0,
@@ -158,6 +158,7 @@ def walkback_runs(
                         perm_cols += new_features
                         perm_cols = list(dict.fromkeys(perm_cols + new_features))
                         print(f"{len(feature_cols)} | {len(perm_cols)} | {sorted(perm_cols)}")
+                        pi_value = f"{str(pi_year)}-{pi_handling[0]}"
 
                     elif pi_handling == 'run_separately':
                         
@@ -165,7 +166,7 @@ def walkback_runs(
 
                         perm_cols, p_df = perm_list(
                             df=dfpi,
-                            feature_cols=feature_cols,
+                            feature_cols=feat,
                             target_col=target_col,
                             model=model,
                             fill_inf=0.0,
@@ -188,6 +189,7 @@ def walkback_runs(
                         print(f"{len(feature_cols)} | {len(perm_cols)} | New Cols: {sorted(new_perm_cols)}")
                         perm_cols += new_perm_cols
                         perm_cols = list(dict.fromkeys(perm_cols + new_features))
+                        pi_value = f"{str(pi_year)}-{pi_handling[0]}"
 
                     elif pi_handling == 'include_new':
 
@@ -201,6 +203,8 @@ def walkback_runs(
                             min_feats=min_feat
                         )
                         
+                        pi_value = f"{str(pi_year)}-{pi_handling[0]}"
+
                         print(f"{len(feature_cols)} | {len(perm_cols)} | All Cols: {sorted(perm_cols)}")
                     
                     # Drop any accidental return cols from features (belt+suspenders)
@@ -255,11 +259,11 @@ def walkback_runs(
                         "test_end": dates[test_end - 1] if dates is not None else test_end - 1,
                         "train_years": train_years,
                         "n_features": len(safe_feature_cols),
-                        "pi_size": pi_year,
+                        "pi_size": pi_value,
                         "min_feats": min_feat
                     })
 
-                    key_base = (model_name, len(safe_feature_cols), pi_year, min_feat, train_years)
+                    key_base = (model_name, len(safe_feature_cols), pi_value, min_feat, train_years)
 
                     for col, pi in zip(p_df["feature"], p_df["pi_mean"]):
                         key = key_base + (col,)
@@ -360,14 +364,17 @@ def perm_list(
     else:
 
         # keep only features with PI > 0
-        pi_cols = pi_df['feature'][pi_df['pi_mean'] > .01].to_list()
+        pi_cols = pi_df['feature'][pi_df['pi_mean'] > .03].to_list()
+        perm_df = pi_df[['feature', 'pi_mean']][pi_df['pi_mean'] > 0.03]
 
-        if len(pi_cols) > 4:
+        if len(pi_cols) < 4:
             pi_cols = (
                 pi_df.sort_values("pi_mean", ascending=False)
                     .head(4)["feature"]
                     .tolist()
             )
+
+            perm_df = pi_df[['feature', 'pi_mean']].sort_values("pi_mean", ascending=False).head(min_feats)
 
     #print(pi_df.sort_values("pi_mean", ascending=False))
     #print(f"Ran permutation importance for horizon {purge_days} | Len: {N_PI} | Old: {len(feature_cols)} | New: {len(pi_cols)}")
