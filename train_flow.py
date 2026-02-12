@@ -186,7 +186,7 @@ def walkback_runs(
                         )
                         
                         print(f"{len(feature_cols)} | {len(perm_cols)} | Original Cols: {sorted(perm_cols)}")
-                        print(f"{len(feature_cols)} | {len(perm_cols)} | New Cols: {sorted(new_perm_cols)}")
+                        print(f"{len(feature_cols)} | {len(new_perm_cols)} | New Cols: {sorted(new_perm_cols)}")
                         perm_cols += new_perm_cols
                         perm_cols = list(dict.fromkeys(perm_cols + new_features))
                         pi_value = f"{str(pi_year)}-{pi_handling[0]}"
@@ -343,23 +343,22 @@ def perm_list(
         "pi_mean": pi.importances_mean,
         "pi_std":  pi.importances_std,
     }).sort_values("pi_mean", ascending=False)
+    #print(pi_df.head(8))
 
     if feat_type != "New":
 
         # keep only features with PI > 0
         pi_cols = pi_df['feature'][pi_df['pi_mean'] > .03].to_list()
         perm_df = pi_df[['feature', 'pi_mean']][pi_df['pi_mean'] > 0.03]
-
-        if len(feature_cols) > 10:
             
-            if len(pi_cols) < min_feats:
-                pi_cols = (
-                    pi_df.sort_values("pi_mean", ascending=False)
-                        .head(min_feats)["feature"]
-                        .tolist()
-                )
-            
-            perm_df = pi_df[['feature', 'pi_mean']].sort_values("pi_mean", ascending=False).head(min_feats)
+        if len(pi_cols) < min_feats:
+            pi_cols = (
+                pi_df.sort_values("pi_mean", ascending=False)
+                    .head(min_feats)["feature"]
+                    .tolist()
+            )
+        
+        perm_df = pi_df[['feature', 'pi_mean']].sort_values("pi_mean", ascending=False).head(min_feats)
     
     else:
 
@@ -367,10 +366,10 @@ def perm_list(
         pi_cols = pi_df['feature'][pi_df['pi_mean'] > .03].to_list()
         perm_df = pi_df[['feature', 'pi_mean']][pi_df['pi_mean'] > 0.03]
 
-        if len(pi_cols) < 4:
+        if len(pi_cols) < min_feats:
             pi_cols = (
                 pi_df.sort_values("pi_mean", ascending=False)
-                    .head(4)["feature"]
+                    .head(min_feats)["feature"]
                     .tolist()
             )
 
