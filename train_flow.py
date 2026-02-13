@@ -60,9 +60,10 @@ def import_data(ticker, minute_feats, returns):
     vola_cols = feature_sets['volatility']
     vix_skew_cols = feature_sets['vix_skew']
     experimental_slope_cols = feature_sets['experimental_slope']
+    past_return_cols = feature_sets['past_return']
 
-    sets = [ma_lag, ma_rel, ma_sma, ma_num, rsi_cols + macd_cols, volu_cols, atr_adx_cols + vola_cols, vix_skew_cols, experimental_slope_cols]
-    set_names = ["ma_lag", "ma_rel", "ma_sma", "ma_num", "rsi_macd", "volu", "atr_adx" + "vola", "vix_skew", "experimental_slope"]
+    sets = [ma_lag, ma_rel, ma_sma, ma_num, rsi_cols + macd_cols, volu_cols, atr_adx_cols + vola_cols, vix_skew_cols, experimental_slope_cols, past_return_cols]
+    set_names = ["ma_lag", "ma_rel", "ma_sma", "ma_num", "rsi_macd", "volu", "atr_adx" + "vola", "vix_skew", "experimental_slope", "past_return"]
     feature_sets = dict(zip(set_names,sets))
     feature_master_list = [x for sub in sets for x in sub]
 

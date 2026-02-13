@@ -414,9 +414,28 @@ def macd(df):
 
     return df
 
+def past_returns(df, lb, returns):
+
+    df = df.sort_values(by='Date', ascending=False)
+
+    for days in returns:
+
+        past_return = (df['Close'] - df['Close'].shift(days)) / df['Close']
+        df[f'Past_Return_{days}'] = (past_return > 0).astype(int)
+        df[f'Past_Return%_{days}'] = past_return
+
+    df[[f"Sum{lb}_{c}" for c in df.columns if c.startswith("Past_Return_")]] = (df.sort_values(by="Date", ascending=True).filter(like="Past_Return_").rolling(lb, min_periods=1).sum())
+
+    drop_cols = [c for c in df.columns if c.startswith("Past_Return_")]
+
+    df = df[[c for c in df.columns if c not in drop_cols]]
+
+    return df
+
 exclude = {'Date', 'Close', 'High', 'Low', 'Volume'}
 
 def pull_daily(ticker, returns):
+
     df_orig = get_data(ticker) # extract pricing data
     df_returns = generate_returns(df_orig, returns) # generate target variable
 
@@ -436,9 +455,11 @@ def pull_daily(ticker, returns):
     vix_skew_cols = generate_col_list(vix_skew_df)
     experimental_slope_df = experimental_slope(df_orig)
     experimental_slope_cols = generate_col_list(experimental_slope_df)
+    past_return_df = past_returns(df_orig, 10, [1, 2, 3, 5, 10, 20, 30])
+    past_return_cols = generate_col_list(past_return_df)
 
     feature_sets = [ma_df, rsi_df, macd_df, volume_df, atr_adx_df, volatility_df, 
-                    vix_skew_df, experimental_slope_df]
+                    vix_skew_df, experimental_slope_df, past_return_df]
     feature_cols = {
     "ma": ma_cols,
     "rsi": rsi_cols,
@@ -448,6 +469,7 @@ def pull_daily(ticker, returns):
     "volatility": volatility_cols,
     "vix_skew": vix_skew_cols,
     "experimental_slope": experimental_slope_cols,
+    "past_return": past_return_cols
     }
 
     # merge returns and features table into one df
