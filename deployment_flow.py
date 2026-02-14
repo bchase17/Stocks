@@ -1,6 +1,6 @@
-import train_flow
+import train_flowv2
 import importlib
-importlib.reload(train_flow)
+importlib.reload(train_flowv2)
 import pandas as pd
 import numpy as np
 from sklearn.base import clone
@@ -12,6 +12,7 @@ from collections import defaultdict
 warnings.filterwarnings("ignore", message="y_pred contains classes not in y_true")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
+
 
 def _compute_dist(y):
     """Distribution stats for y in {0,1}."""
@@ -43,7 +44,8 @@ def walkback_runs(
     fill_inf=0.0,
     min_feat=8,
     pi_handling=None,
-    new_features=None,
+    feature_dict=None,
+    groups=None
 ):
     """
     Deployment-aligned evaluation:
@@ -54,6 +56,7 @@ def walkback_runs(
     Returns: long DataFrame with one row per (feature_set/run/model).
     """
     rows = []
+    pi_acc = defaultdict(lambda: {"pi_sum": 0.0, "count": 0})
 
     for k in range(runs):
 
@@ -66,7 +69,7 @@ def walkback_runs(
         purge = int(purge_days) if purge_days is not None else 0 #int(horizon_days)
         test_end = n - k * step
         test_start = test_end - test_size
-    
+
         if test_start < 0:
             break
 
@@ -77,62 +80,36 @@ def walkback_runs(
         
         dates = dfw[date_col].to_numpy() if date_col in dfw.columns else None
         dfpi = dfw[train_start:train_end].copy()
-        new_features = new_features or []
-        base_feature_cols = list(feature_cols)
 
-        if pi_handling == 'exclude_new':
+        if pi_handling == 'run_separately':
 
-            feat = [c for c in base_feature_cols if c not in new_features]
-
-            perm_cols, p_df = train_flow.perm_list(
-                df=dfpi,
-                feature_cols=feat,
-                target_col=target_col,
-                model=model,
-                fill_inf=0.0,
-                pi_year=pi_year,
-                min_feats=min_feat
-            )
-
-            perm_cols += new_features
-            perm_cols = list(dict.fromkeys(perm_cols + new_features))
-            print(f"{len(feature_cols)} | {len(perm_cols)} | {sorted(perm_cols)}")
-            #pi_value = f"{str(pi_year)}-{pi_handling[0]}"
-
-        elif pi_handling == 'run_separately':
+            final_features = []
+            all_perm_dfs = []
             
-            feat = [c for c in base_feature_cols if c not in new_features]
+            for g in groups:
 
-            perm_cols, p_df = train_flow.perm_list(
-                df=dfpi,
-                feature_cols=feat,
-                target_col=target_col,
-                model=model,
-                fill_inf=0.0,
-                pi_year=pi_year,
-                min_feats=min_feat
-            )
+                group_cols = feature_dict[g]
+                perm_cols, p_df = train_flowv2.perm_list(
+                    df=dfpi,
+                    feature_cols=group_cols,
+                    target_col=target_col,
+                    model=model,
+                    fill_inf=0.0,
+                    pi_year=pi_year,
+                    min_feats=min_feat,
+                    feat_type=g
+                )
 
-            new_perm_cols, p_df = train_flow.perm_list(
-                df=dfpi,
-                feature_cols=new_features,
-                target_col=target_col,
-                model=model,
-                fill_inf=0.0,
-                pi_year=pi_year,
-                min_feats=min_feat,
-                feat_type="New"
-            )
-            
-            print(f"{len(feature_cols)} | {len(perm_cols)} | Original Cols: {sorted(perm_cols)}")
-            print(f"{len(feature_cols)} | {len(new_perm_cols)} | New Cols: {sorted(new_perm_cols)}")
-            perm_cols += new_perm_cols
-            perm_cols = list(dict.fromkeys(perm_cols + new_features))
-            #pi_value = f"{str(pi_year)}-{pi_handling[0]}"
+                final_features += perm_cols
+                all_perm_dfs.append(p_df)
+                
+                print(f"{g}: {len(group_cols)} | {len(perm_cols)} | {sorted(perm_cols)}")
+
+            final_features = list(dict.fromkeys(final_features))
 
         elif pi_handling == 'include_new':
 
-            perm_cols, p_df = train_flow.perm_list(
+            perm_cols, perm_df = train_flowv2.perm_list(
                 df=dfpi,
                 feature_cols=feature_cols,
                 target_col=target_col,
@@ -141,13 +118,11 @@ def walkback_runs(
                 pi_year=pi_year,
                 min_feats=min_feat
             )
-            
-            #pi_value = f"{str(pi_year)}-{pi_handling[0]}"
 
             print(f"{len(feature_cols)} | {len(perm_cols)} | All Cols: {sorted(perm_cols)}")
         
         # Drop any accidental return cols from features (belt+suspenders)
-        safe_feature_cols = [c for c in perm_cols if not c.startswith("Return")]
+        safe_feature_cols = [c for c in final_features if not c.startswith("Return")]
 
         # Basic numeric cleaning
         dfw[safe_feature_cols] = dfw[safe_feature_cols].replace([np.inf, -np.inf], fill_inf)
@@ -202,11 +177,11 @@ def walkback_runs(
             "pi_handling": pi_handling,
             "min_feats": min_feat
         })
-        
+
     return pd.DataFrame(rows)
 
 def run_deploy_flow(days_assessed, r, pi_handling, feature_cols, df, model_name, model,
-                   train_year, pi_year, min_feat, list_name):
+                   train_year, pi_year, min_feat, list_name, feature_dict, groups):
 
     results= []
     results_df = pd.DataFrame()
@@ -240,6 +215,8 @@ def run_deploy_flow(days_assessed, r, pi_handling, feature_cols, df, model_name,
         fill_inf=0.0,
         min_feat=min_feat,
         pi_handling=pi_handling,
+        feature_dict=feature_dict,
+        groups=groups
     )
 
     df_scores["features"] = list_name
