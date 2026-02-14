@@ -108,7 +108,7 @@ def _metrics(y_col, p_col, min_th, cov_th, g: pd.DataFrame) -> pd.Series:
 
 def run_performance(perf_df, min_th, cov_th):
 
-    gcols = ["horizon", "model", "train_years", "feature_set", "pi_size", "min_feats"]
+    gcols = ["horizon", "model", "train_years", "features", "pi_size", "pi_handling", "min_feats"]
 
     y_col = "test_pos_n"   # 0/1 actual
     p_col = "pred"         # P(y=1)
@@ -165,7 +165,7 @@ def flip_bucket_tables_multi_dual(
         w = {1: 2.0, 2: 1.5, 3: 1.25, "3+": 1.0}
 
     max_score = float(sum(w.values()))
-    gcols = ["model", "train_years", "feature_set", "pi_size", "min_feats"]
+    gcols = ["model", "train_years", "features", "pi_size", "min_feats"]
 
     def _add_streak(df_base, ret_col):
         d = df_base[[date_col, close_col, ret_col]].sort_values(date_col).copy()
@@ -313,7 +313,7 @@ def bucket_scores(df_daily, perf_df, returns, min_th):
     by_r[10].sort_values(["wba_close", "wba_open"], ascending=False).head(25)
 
     # all horizons combined
-    perf_columns = ['horizon', 'model', 'train_years', 'feature_set', 'pi_size', 'min_feats',
+    perf_columns = ['horizon', 'model', 'train_years', 'features', 'pi_size', 'min_feats',
                     'n_1_c', 'n_-1_c', 'acc_1_c', 'acc_-1_c',
                     'bal_acc_1_o', 'bal_acc_2_o', 'bal_acc_3_o', 'bal_acc_3p_o', 'wba_open', 'wba_close']
 
@@ -325,7 +325,7 @@ def bucket_scores(df_daily, perf_df, returns, min_th):
         .head(10)
     )
 
-    perf_columns = ['horizon', 'model', 'train_years', 'feature_set', 'pi_size', 'min_feats',
+    perf_columns = ['horizon', 'model', 'train_years', 'features', 'pi_size', 'min_feats',
                 'n_1_c', 'n_-1_c', 'acc_1_c', 'acc_-1_c',
                  'bal_acc_1_o', 'bal_acc_2_o', 'bal_acc_3_o', 'bal_acc_3p_o', 'wba_open', 'wba_close']
 
