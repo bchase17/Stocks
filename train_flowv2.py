@@ -11,63 +11,8 @@ from collections import defaultdict
 warnings.filterwarnings("ignore", message="y_pred contains classes not in y_true")
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
-
 importlib.reload(min_features)
 importlib.reload(daily_return)
-
-def import_data(ticker, minute_feats, returns):
-
-    if minute_feats != 'N':
-
-        df_min = min_features.min_features()
-        df_daily, feature_sets = daily_return.pull_daily(ticker, returns) 
-
-        df_main = pd.merge(df_min, df_daily, how='inner', on='Date')
-        df_main = df_main.sort_values(by='Date', ascending=False)
-
-        return_cols = df_main.columns[df_main.columns.str.contains("Return_")].to_list()
-        daily_cols = [
-            c for c in df_daily.iloc[:, 1:].columns
-            if "return" not in c.lower()
-        ]
-        close_cols = df_min.columns[(df_min.columns.str.contains("close_")) | (df_min.columns.str.contains("post_")) | (df_min.columns.str.contains("overnight_"))].to_list()
-        min_cols = (
-            df_min
-            .loc[:, ~df_min.columns.isin(close_cols)]  # drop close_ columns
-            .iloc[:, 1:]                               # drop first column
-            .columns
-            .to_list()
-        )
-    else:
-        df_daily, feature_sets = daily_return.pull_daily('QQQ', returns) 
-        return_cols = df_daily.columns[df_daily.columns.str.contains("Return_")].to_list()
-        daily_cols = [
-            c for c in df_daily.iloc[:, 1:].columns
-            if "return" not in c.lower()
-        ]
-
-    print(f'Available Feature Sets: {feature_sets.keys()}')
-
-    ma_all_cols = feature_sets['ma']
-    ma_lag = [c for c in ma_all_cols if "lag" in c.lower()]
-    ma_rel = [c for c in ma_all_cols if "rel_" in c.lower()]
-    ma_sma = [c for c in ma_all_cols if ("sma_" in c.lower()) and ("lag" not in c.lower())]
-    ma_num = [c for c in ma_all_cols if ("num" in c.lower()) or ("since" in c.lower())]
-    rsi_cols = feature_sets['rsi']
-    macd_cols = feature_sets['macd']
-    volu_cols = feature_sets['volume']
-    atr_adx_cols = feature_sets['atr_adx']
-    vola_cols = feature_sets['volatility']
-    vix_skew_cols = feature_sets['vix_skew']
-    experimental_slope_cols = feature_sets['experimental_slope']
-    past_return_cols = feature_sets['past_return']
-
-    sets = [ma_lag, ma_rel, ma_sma, ma_num, rsi_cols + macd_cols, volu_cols, atr_adx_cols + vola_cols, vix_skew_cols, experimental_slope_cols, past_return_cols]
-    set_names = ["ma_lag", "ma_rel", "ma_sma", "ma_num", "rsi_macd", "volu", "atr_adx" + "vola", "vix_skew", "experimental_slope", "past_return"]
-    feature_sets = dict(zip(set_names,sets))
-    feature_master_list = [x for sub in sets for x in sub]
-
-    return df_daily, feature_sets, return_cols, daily_cols, feature_sets, feature_master_list
 
 def _compute_dist(y):
     """Distribution stats for y in {0,1}."""
