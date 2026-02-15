@@ -139,6 +139,7 @@ def flip_bucket_tables_multi_dual(
     perf_df,
     returns,
     min_th,
+    gcols,
     *,
     K=3,
     date_col="Date",
@@ -165,7 +166,8 @@ def flip_bucket_tables_multi_dual(
         w = {1: 2.0, 2: 1.5, 3: 1.25, "3+": 1.0}
 
     max_score = float(sum(w.values()))
-    gcols = ["model", "train_years", "features", "pi_size", "min_feats"]
+    #gcols = ["model", "train_years", "features", "pi_size", "min_feats"]
+    gcols = [c for c in gcols if c != "horizon"]
 
     def _add_streak(df_base, ret_col):
         d = df_base[[date_col, close_col, ret_col]].sort_values(date_col).copy()
@@ -298,7 +300,7 @@ def flip_bucket_tables_multi_dual(
     all_out = pd.concat(by_r.values(), ignore_index=True)
     return by_r, all_out, other
 
-def bucket_scores(df_daily, perf_df, returns, min_th):
+def bucket_scores(df_daily, perf_df, returns, min_th, keys):
 
     # ---- usage ----
     by_r, all_out, d = flip_bucket_tables_multi_dual(
@@ -306,6 +308,7 @@ def bucket_scores(df_daily, perf_df, returns, min_th):
         perf_df=perf_df,
         returns=returns,
         min_th=min_th,
+        gcols=keys,
         K=3,
     )
 

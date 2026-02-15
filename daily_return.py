@@ -366,7 +366,8 @@ def generate_returns(df, returns):
         df = df.sort_values(by='Date', ascending=True)
         future_return = (df['Close'].shift(-days) - df['Close']) / df['Close']
         df[f'Return%_{days}'] = (future_return * 100).round(1) 
-        df[f'Return_{days}'] = (future_return > 0).astype(int)
+        #df[f'Return_{days}'] = (future_return > 0).astype(int)
+        df[f'Return_{days}'] = ((future_return > 0).where(future_return.notna()).astype("Int64"))
         
         past_return = (df['Close'] - df['Close'].shift(days)) / df['Close']
         df[f'Past_Return_{days}'] = (past_return > 0).astype(int)

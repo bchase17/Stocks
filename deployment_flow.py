@@ -45,7 +45,8 @@ def walkback_runs(
     min_feat=8,
     pi_handling=None,
     feature_dict=None,
-    groups=None
+    groups=None,
+    type=None
 ):
     """
     Deployment-aligned evaluation:
@@ -55,6 +56,7 @@ def walkback_runs(
       - Score ONLY on the OOT test window (distribution + metrics).
     Returns: long DataFrame with one row per (feature_set/run/model).
     """
+    
     rows = []
     pi_acc = defaultdict(lambda: {"pi_sum": 0.0, "count": 0})
 
@@ -159,65 +161,120 @@ def walkback_runs(
             proba = float(1.0 / (1.0 + np.exp(-s)))        # squash to (0,1)
         proba = np.nan if np.isnan(proba) else round(round(proba / 0.05) * 0.05, 2)
 
-        rows.append({
-            "run": k + 1,
-            "model": model_name,
-            "test_days": test_days,
-            "pred": round(proba,2),
-            "acc": float(accuracy_score(y_test, preds)),
-            **dist,
-            "train_n": int(len(y_train)),
-            "train_start": dates[train_start] if dates is not None else train_start,
-            "train_end": dates[train_end - 1] if dates is not None else train_end - 1,
-            "test_start": dates[test_start] if dates is not None else test_start,
-            "test_end": dates[test_end - 1] if dates is not None else test_end - 1,
-            "train_years": train_years,
-            "n_features": len(safe_feature_cols),
-            "pi_size": pi_year,
-            "pi_handling": pi_handling,
-            "min_feats": min_feat
-        })
+        if type == "Actualized":
+
+            rows.append({
+                "run": k + 1,
+                "model": model_name,
+                "test_days": test_days,
+                "pred": round(proba,2),
+                "acc": float(accuracy_score(y_test, preds)),
+                **dist,
+                "train_n": int(len(y_train)),
+                "train_start": dates[train_start] if dates is not None else train_start,
+                "train_end": dates[train_end - 1] if dates is not None else train_end - 1,
+                "test_start": dates[test_start] if dates is not None else test_start,
+                "test_end": dates[test_end - 1] if dates is not None else test_end - 1,
+                "train_years": train_years,
+                "n_features": len(safe_feature_cols),
+                "pi_size": pi_year,
+                "pi_handling": pi_handling,
+                "min_feats": min_feat
+            })
+
+        else:
+
+            rows.append({
+                "run": k + 1,
+                "model": model_name,
+                "test_days": test_days,
+                "pred": round(proba,2),
+                "train_n": int(len(y_train)),
+                "train_start": dates[train_start] if dates is not None else train_start,
+                "train_end": dates[train_end - 1] if dates is not None else train_end - 1,
+                "test_start": dates[test_start] if dates is not None else test_start,
+                "test_end": dates[test_end - 1] if dates is not None else test_end - 1,
+                "train_years": train_years,
+                "n_features": len(safe_feature_cols),
+                "pi_size": pi_year,
+                "pi_handling": pi_handling,
+                "min_feats": min_feat
+            })
 
     return pd.DataFrame(rows)
 
 def run_deploy_flow(days_assessed, r, pi_handling, feature_cols, df, model_name, model,
-                   train_year, pi_year, min_feat, list_name, feature_dict, groups):
+                   train_year, pi_year, min_feat, list_name, feature_dict, groups, type):
 
     results= []
     results_df = pd.DataFrame()
-
-    runs = days_assessed
 
     base_cols = feature_cols
     train_year = train_year
     pi_year = pi_year
     min_feat = min_feat
 
-    target_col = f"Return_{r}"
-    # Trime unknown (recent) outcomes
-    df_final = df.iloc[r:].copy()
+    if type == 'Actualized':
 
-    print(f"Running for horizon {r} | {pi_handling}")
+        target_col = f"Return_{r}"
+        # Trime unknown (recent) outcomes
+        df_final = df.iloc[r:].copy()
 
-    df_scores = walkback_runs(
-        df=df_final,
-        model=model,
-        model_name=model_name,
-        feature_cols=base_cols,
-        target_col=target_col,
-        pi_year=pi_year,
-        date_col="Date",
-        train_years=train_year,
-        test_days=1,
-        step_days=1,
-        runs=runs,
-        purge_days=r, 
-        fill_inf=0.0,
-        min_feat=min_feat,
-        pi_handling=pi_handling,
-        feature_dict=feature_dict,
-        groups=groups
-    )
+        print(f"Running actualized predictions for horizon {r} | {pi_handling}")
+
+        df_scores = walkback_runs(
+            df=df_final,
+            model=model,
+            model_name=model_name,
+            feature_cols=base_cols,
+            target_col=target_col,
+            pi_year=pi_year,
+            date_col="Date",
+            train_years=train_year,
+            test_days=1,
+            step_days=1,
+            runs=days_assessed,
+            purge_days=r, 
+            fill_inf=0.0,
+            min_feat=min_feat,
+            pi_handling=pi_handling,
+            feature_dict=feature_dict,
+            groups=groups,
+            type='Actualized'
+        )
+
+    elif type == 'New_Predict':
+
+        print(f"Running new predictions for horizon {r} | {pi_handling}")
+
+        target_col = f"Return_{r}"
+        # Trime unknown (recent) outcomes
+        df_final = df.copy()
+
+        df_scores = walkback_runs(
+            df=df_final,
+            model=model,
+            model_name=model_name,
+            feature_cols=base_cols,
+            target_col=target_col,
+            pi_year=pi_year,
+            date_col="Date",
+            train_years=train_year,
+            test_days=1,
+            step_days=1,
+            runs=days_assessed,
+            purge_days=r, 
+            fill_inf=0.0,
+            min_feat=min_feat,
+            pi_handling=pi_handling,
+            feature_dict=feature_dict,
+            groups=groups,
+            type='New_Predict'
+        )
+
+    else:
+        
+        print("Unknown if predicting actualized or new records, update type argument to 'Actualized' or 'New_Predict'")
 
     df_scores["features"] = list_name
     df_scores["horizon"] = r
