@@ -422,13 +422,12 @@ def past_returns(df, lb, returns):
         past_return = df["Close"] / df["Close"].shift(days) - 1
         df[f"Past_Return_{days}"] = (past_return > 0).astype(int)
         df[f"Past_Return%_{days}"] = past_return
-        df[f"PR_Close_{days}"] = df['Close'].shift(days)
 
     df[[f"Sum{lb}_{c}" for c in df.columns if c.startswith("Past_Return_")]] = (df.sort_values(by="Date", ascending=True).filter(like="Past_Return_").rolling(lb, min_periods=1).sum())
 
     drop_cols = [c for c in df.columns if c.startswith("Past_Return_")]
 
-    #df = df[[c for c in df.columns if c not in drop_cols]]
+    df = df[[c for c in df.columns if c not in drop_cols]]
 
     return df
 

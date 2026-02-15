@@ -157,6 +157,12 @@ def walkback_runs(
                     m = clone(model)
                     m.fit(X_train, y_train)
 
+                    from sklearn.metrics import precision_score
+                    y_pred_train = m.predict(X_train)
+                    pos_prec = precision_score(y_train, y_pred_train, pos_label=1)
+                    neg_prec = precision_score(y_train, y_pred_train, pos_label=0)
+                    print(f"Train PPrec: {pos_prec:.4f} | Train NPrec: {neg_prec:.4f}")
+
                     preds = m.predict(X_test)
                     proba = np.nan
                     if hasattr(m, "predict_proba"):
