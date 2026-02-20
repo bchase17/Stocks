@@ -133,6 +133,7 @@ def walkback_runs(
         #y_all = _to_binary(dfw[target_col].to_numpy())
         y_all = dfw[target_col].to_numpy()
 
+        """
         print(
             f"Run {k+1}/{runs} | "
             f"Train: {dates[train_start]} → {dates[train_end-1]} | "
@@ -140,6 +141,7 @@ def walkback_runs(
             f"Train_n={train_end-train_start} | Test_n={test_end-test_start} | "
             f"(PI Years: {pi_year} - Feats: {min_feat})"
         )
+        """
 
         X_train = X_all[train_start:train_end]
         y_train = y_all[train_start:train_end]
@@ -277,7 +279,6 @@ def run_deploy_flow(days_assessed, r, pi_handling, feature_cols, df, model_name,
         target_col = f"Return_{r}"
         # Trime unknown (recent) outcomes
         df_final = df.copy()
-
         df_scores = walkback_runs(
             df=df_final,
             model=model,
@@ -287,9 +288,9 @@ def run_deploy_flow(days_assessed, r, pi_handling, feature_cols, df, model_name,
             pi_year=pi_year,
             date_col="Date",
             train_years=train_year,
-            test_days=1,
+            test_days=days_assessed,
             step_days=1,
-            runs=days_assessed,
+            runs=int(days_assessed / days_assessed),
             purge_days=r, 
             fill_inf=0.0,
             min_feat=min_feat,
