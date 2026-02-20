@@ -1,6 +1,6 @@
-import train_flowv2
+import train_flow
 import importlib
-importlib.reload(train_flowv2)
+importlib.reload(train_flow)
 import pandas as pd
 import numpy as np
 from sklearn.base import clone
@@ -91,7 +91,7 @@ def walkback_runs(
             for g in groups:
 
                 group_cols = feature_dict[g]
-                perm_cols, p_df = train_flowv2.perm_list(
+                perm_cols, p_df = train_flow.perm_list(
                     df=dfpi,
                     feature_cols=group_cols,
                     target_col=target_col,
@@ -105,13 +105,13 @@ def walkback_runs(
                 final_features += perm_cols
                 all_perm_dfs.append(p_df)
                 
-                print(f"{g}: {len(group_cols)} | {len(perm_cols)} | {sorted(perm_cols)}")
+                #print(f"{g}: {len(group_cols)} | {len(perm_cols)} | {sorted(perm_cols)}")
 
             final_features = list(dict.fromkeys(final_features))
 
         elif pi_handling == 'include_new':
 
-            perm_cols, perm_df = train_flowv2.perm_list(
+            perm_cols, perm_df = train_flow.perm_list(
                 df=dfpi,
                 feature_cols=feature_cols,
                 target_col=target_col,
@@ -121,7 +121,7 @@ def walkback_runs(
                 min_feats=min_feat
             )
 
-            print(f"{len(feature_cols)} | {len(perm_cols)} | All Cols: {sorted(perm_cols)}")
+            #print(f"{len(feature_cols)} | {len(perm_cols)} | All Cols: {sorted(perm_cols)}")
         
         # Drop any accidental return cols from features (belt+suspenders)
         safe_feature_cols = [c for c in final_features if not c.startswith("Return")]
@@ -153,53 +153,80 @@ def walkback_runs(
         m.fit(X_train, y_train)
 
         preds = m.predict(X_test)
-        proba = np.nan
+        # probability per row
         if hasattr(m, "predict_proba"):
-            proba = float(m.predict_proba(X_test)[0, 1])   # prob(class=1)
+            proba_vec = m.predict_proba(X_test)[:, 1].astype(float)
         elif hasattr(m, "decision_function"):
-            s = float(m.decision_function(X_test)[0])
-            proba = float(1.0 / (1.0 + np.exp(-s)))        # squash to (0,1)
-        proba = np.nan if np.isnan(proba) else round(round(proba / 0.05) * 0.05, 2)
+            s = m.decision_function(X_test).astype(float)
+            proba_vec = 1.0 / (1.0 + np.exp(-s))
+        else:
+            proba_vec = np.full(len(preds), np.nan, dtype=float)
 
         if type == "Actualized":
 
-            rows.append({
-                "run": k + 1,
-                "model": model_name,
-                "test_days": test_days,
-                "pred": round(proba,2),
-                "acc": float(accuracy_score(y_test, preds)),
-                **dist,
-                "train_n": int(len(y_train)),
-                "train_start": dates[train_start] if dates is not None else train_start,
-                "train_end": dates[train_end - 1] if dates is not None else train_end - 1,
-                "test_start": dates[test_start] if dates is not None else test_start,
-                "test_end": dates[test_end - 1] if dates is not None else test_end - 1,
-                "train_years": train_years,
-                "n_features": len(safe_feature_cols),
-                "pi_size": pi_year,
-                "pi_handling": pi_handling,
-                "min_feats": min_feat
-            })
+            # optional rounding to 0.05 grid
+            proba_vec = np.where(
+                np.isnan(proba_vec),
+                np.nan,
+                np.round(np.round(proba_vec / 0.05) * 0.05, 2)
+            )
+
+            # per-day rows
+            for j in range(test_start, test_end):
+                idx = j - test_start  # index into preds/proba_vec/y_test
+                asof_date = dates[j] if dates is not None else j
+
+                rows.append({
+                    "run": k + 1,
+                    "model": model_name,
+                    "test_days": test_days,
+                    "pred": float(proba_vec[idx]) if not np.isnan(proba_vec[idx]) else np.nan,
+                    "pred_class": int(preds[idx]),
+                    "test_pos_n": int(y_test[idx]),
+                    "acc": int(preds[idx] == y_test[idx]),   # per-day accuracy (0/1)
+                    "train_n": int(len(y_train)),
+                    "train_start": dates[train_start] if dates is not None else train_start,
+                    "train_end": dates[train_end - 1] if dates is not None else train_end - 1,
+                    "test_start": asof_date, #dates[test_start] if dates is not None else test_start,
+                    "test_end": dates[test_end - 1] if dates is not None else test_end - 1,
+                    "train_years": train_years,
+                    "n_features": len(safe_feature_cols),
+                    "pi_size": pi_year,
+                    "pi_handling": pi_handling,
+                    "min_feats": min_feat,
+                })
 
         else:
 
-            rows.append({
-                "run": k + 1,
-                "model": model_name,
-                "test_days": test_days,
-                "pred": round(proba,2),
-                "train_n": int(len(y_train)),
-                "train_start": dates[train_start] if dates is not None else train_start,
-                "train_end": dates[train_end - 1] if dates is not None else train_end - 1,
-                "test_start": dates[test_start] if dates is not None else test_start,
-                "test_end": dates[test_end - 1] if dates is not None else test_end - 1,
-                "train_years": train_years,
-                "n_features": len(safe_feature_cols),
-                "pi_size": pi_year,
-                "pi_handling": pi_handling,
-                "min_feats": min_feat
-            })
+            # optional rounding to 0.05 grid
+            proba_vec = np.where(
+                np.isnan(proba_vec),
+                np.nan,
+                np.round(np.round(proba_vec / 0.05) * 0.05, 2)
+            )
+
+            # per-day rows
+            for j in range(test_start, test_end):
+                
+                idx = j - test_start  # index into preds/proba_vec/y_test
+                asof_date = dates[j] if dates is not None else j
+
+                rows.append({
+                    "run": k + 1,
+                    "model": model_name,
+                    "test_days": test_days,
+                    "pred": float(proba_vec[idx]) if not np.isnan(proba_vec[idx]) else np.nan,
+                    "train_n": int(len(y_train)),
+                    "train_start": dates[train_start] if dates is not None else train_start,
+                    "train_end": dates[train_end - 1] if dates is not None else train_end - 1,
+                    "test_start": asof_date, #dates[test_start] if dates is not None else test_start,
+                    "test_end": dates[test_end - 1] if dates is not None else test_end - 1,
+                    "train_years": train_years,
+                    "n_features": len(safe_feature_cols),
+                    "pi_size": pi_year,
+                    "pi_handling": pi_handling,
+                    "min_feats": min_feat,
+                })
 
     return pd.DataFrame(rows)
 
@@ -231,9 +258,9 @@ def run_deploy_flow(days_assessed, r, pi_handling, feature_cols, df, model_name,
             pi_year=pi_year,
             date_col="Date",
             train_years=train_year,
-            test_days=1,
+            test_days=days_assessed,
             step_days=1,
-            runs=days_assessed,
+            runs=int(days_assessed / days_assessed),
             purge_days=r, 
             fill_inf=0.0,
             min_feat=min_feat,
