@@ -74,10 +74,12 @@ def _metrics(y_col, p_col, min_th, cov_th, g: pd.DataFrame) -> pd.Series:
 
     # positive-class precision
     pred_pos = (yhat == 1)
+    pred_pos_count = int((yhat == 1).sum())
     if pred_pos.any():
         prec_pos_all = float((y[pred_pos] == 1).mean())   # TP/(TP+FP)
 
     pred_neg = (yhat == 0)
+    pred_neg_count = int((yhat == 0).sum())
     if pred_neg.any():
         prec_neg_all = float((y[pred_neg] == 0).mean())   # TN/(TN+FN)
 
@@ -104,6 +106,8 @@ def _metrics(y_col, p_col, min_th, cov_th, g: pd.DataFrame) -> pd.Series:
         f"cov_|{cov_th}|": cov,
         f"pprec_|{cov_th}|": prec_pos_th,
         f"nprec_|{cov_th}|": prec_neg_th,
+        "pos_preds": pred_pos_count,
+        "neg_preds": pred_neg_count,
     })
 
 def run_performance(perf_df, min_th, cov_th):
@@ -131,6 +135,8 @@ def run_performance(perf_df, min_th, cov_th):
         .groupby("horizon", as_index=False, sort=False)
         .head(1000)
     )
+
+    print(1)
 
     return top_by_horizon.round(2)
 

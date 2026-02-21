@@ -6,7 +6,7 @@ warnings.filterwarnings("ignore", module="joblib")
 
 def get_data(ticker):
     
-    df_orig = yf.Ticker(ticker).history(period="max", interval="1d", auto_adjust=True).reset_index()[['Date', 'Close', 'High', 'Low', 'Volume']]
+    df_orig = yf.Ticker(ticker).history(period="max", interval="1d", auto_adjust=True).reset_index()[['Date', 'Close', 'Open', 'High', 'Low', 'Volume']]
     df_orig['Date'] = pd.to_datetime(df_orig['Date']).dt.strftime('%Y-%m-%d')
     
     return df_orig
@@ -18,28 +18,20 @@ def ma_features(df):
     # =======================
     # Basic SMAs and Ratios
     # =======================
-    sma_windows = [10, 25, 50, 100, 200]
+    sma_windows = [5, 10, 15]
     for sma_window in sma_windows:
         
         df[f'SMA_{sma_window}'] = df['Close'].rolling(window=sma_window).mean()
 
+    rel_windows = [25, 50]
+    for window in rel_windows:
+
         # Current close relativet to n_day high | max 1
-        df[f'Close_Rel_Max{sma_window}'] = (df['Close'] / df['High'].rolling(window=sma_window).max()).round(2)
+        df[f'Close_Rel_Max{window}'] = (df['Close'] / df['High'].rolling(window=window).max()).round(2)
         # Current close relativet to n_day low | min 1
-        df[f'Close_Rel_Min{sma_window}'] = (df['Close'] / df['Low'].rolling(window=sma_window).min()).round(2)
-
-    lag_periods = [10, 25, 50, 100, 150, 200]
-    for sma_window in sma_windows:
-        new_cols = {}
-        for col in df.columns:
-            if col == f'SMA_{sma_window}':
-                for lag in lag_periods:
-                        new_cols[f'{col}_Lag{lag}_min'] = (df[col] / df[col].rolling(window=lag).min()).round(2)
-                        new_cols[f'{col}_Lag{lag}_max'] = (df[col] / df[col].rolling(window=lag).max()).round(2)
-
-        df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
+        df[f'Close_Rel_Min{window}'] = (df['Close'] / df['Low'].rolling(window=window).min()).round(2)
     
-    for window in [50, 100, 200]:
+    for window in [5, 10, 15]:
         df[f'num_days_{window}'] = 0
         for i in range(1, len(df)):
             prev = df.loc[i - 1, f'num_days_{window}']
@@ -52,26 +44,14 @@ def ma_features(df):
             else:
                 df.loc[i, f'num_days_{window}'] = 0
 
-    # ============================
-    # Relative Position Features
-    # ============================
-    def rows_since_max(x): return len(x) - x.argmax() - 1
-    def rows_since_min(x): return len(x) - x.argmin() - 1
-
-    for window in [10, 30, 60, 120, 240]:
-
-        df[f'Rel_Max_{window}'] = (df['High'] / df['High'].rolling(window=window).max()).round(2)
-        df[f'Rel_Min_{window}'] = (df['Low'] / df['Low'].rolling(window=window).min()).round(2)
-        df[f'Max_{window}_Rows_Since'] = df['High'].rolling(window=window).apply(rows_since_max, raw=True)
-        df[f'Min_{window}_Rows_Since'] = df['Low'].rolling(window=window).apply(rows_since_min, raw=True)
-
-    for a, b in [(50, 100), (50, 200), (100, 200), (10, 25), (10, 50), (10, 100), (10, 200), (25, 50), (25, 100), (25, 200)]:    
+    for a, b in [(5, 10), (5, 15), (10, 15)]:    
         df[f'{a}_SMA_{b}'] = (df[f'SMA_{a}'] / df[f'SMA_{b}']).round(2)
 
     for window in sma_windows:
 
         df[f'SMA_{window}'] = (df['Close'] / df[f'SMA_{window}']).round(2)
-        #df[f'EMA_{window}'] = (df['Close'] / df[f'EMA_{window}']).round(2)
+    
+    df['Open/Pri_Close'] = df['Open'] / df['Close'].shift(1)
 
     return df
 
@@ -432,7 +412,7 @@ def past_returns(df, lb, returns):
 
     return df
 
-exclude = {'Date', 'Close', 'High', 'Low', 'Volume'}
+exclude = {'Date', 'Close', 'Open', 'High', 'Low', 'Volume'}
 
 def pull_daily(ticker, returns):
 

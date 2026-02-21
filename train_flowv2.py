@@ -1,4 +1,4 @@
-import min_features, daily_return
+import min_features, daily_returnv2
 import importlib
 import pandas as pd
 import numpy as np
@@ -12,14 +12,14 @@ warnings.filterwarnings("ignore", message="y_pred contains classes not in y_true
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 importlib.reload(min_features)
-importlib.reload(daily_return)
+importlib.reload(daily_returnv2)
 
 def import_data(ticker, minute_feats, returns):
 
     if minute_feats != 'N':
 
         df_min = min_features.min_features()
-        df_daily, feature_sets = daily_return.pull_daily(ticker, returns) 
+        df_daily, feature_sets = daily_returnv2.pull_daily(ticker, returns) 
 
         df_main = pd.merge(df_min, df_daily, how='inner', on='Date')
         df_main = df_main.sort_values(by='Date', ascending=False)
@@ -38,7 +38,7 @@ def import_data(ticker, minute_feats, returns):
             .to_list()
         )
     else:
-        df_daily, feature_sets = daily_return.pull_daily('QQQ', returns) 
+        df_daily, feature_sets = daily_returnv2.pull_daily('QQQ', returns) 
         return_cols = df_daily.columns[df_daily.columns.str.contains("Return_")].to_list()
         daily_cols = [
             c for c in df_daily.iloc[:, 1:].columns
@@ -61,8 +61,8 @@ def import_data(ticker, minute_feats, returns):
     experimental_slope_cols = feature_sets['experimental_slope']
     past_return_cols = feature_sets['past_return']
 
-    sets = [ma_lag, ma_rel, ma_sma, ma_num, rsi_cols + macd_cols, volu_cols, atr_adx_cols + vola_cols, vix_skew_cols, experimental_slope_cols, past_return_cols]
-    set_names = ["ma_lag", "ma_rel", "ma_sma", "ma_num", "rsi_macd", "volu", "atr_adx" + "vola", "vix_skew", "experimental_slope", "past_return"]
+    sets = [ma_all_cols, rsi_cols + macd_cols, volu_cols, atr_adx_cols + vola_cols, vix_skew_cols, experimental_slope_cols, past_return_cols]
+    set_names = ["ma_all", "rsi_macd", "volu", "atr_adx" + "vola", "vix_skew", "experimental_slope", "past_return"]
     feature_sets = dict(zip(set_names,sets))
     feature_master_list = [x for sub in sets for x in sub]
 
