@@ -136,8 +136,6 @@ def run_performance(perf_df, min_th, cov_th):
         .head(1000)
     )
 
-    print(1)
-
     return top_by_horizon.round(2)
 
 def flip_bucket_tables_multi_dual(

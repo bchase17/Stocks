@@ -150,6 +150,7 @@ def walkback_runs(
                         for g in groups:
 
                             group_cols = feature_dict[g]
+                            group_cols = feature_cols
 
                             perm_cols, p_df = perm_list(
                                 df=dfpi,
