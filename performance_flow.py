@@ -33,75 +33,71 @@ def _metrics(y_col, p_col, min_th, cov_th, g: pd.DataFrame) -> pd.Series:
     yhat = yhat[conf].astype(int)
     records = int(len(y))
 
-    # confident subset mask
-    sel = (p >= cov_th) | (p <= (1-cov_th))
+    # nothing to score
+    if records == 0:
+        return pd.Series({
+            "pos_rate": np.nan,
+            "records": 0,
+            "bal_prec": np.nan,
+            f"bal_prec_|{cov_th}|": np.nan,
+            "brier": np.nan,
+            "log_loss": np.nan,
+            "mcc": np.nan,
+            "pprec": np.nan,
+            "nprec": np.nan,
+            f"cov_|{cov_th}|": np.nan,
+            f"pprec_|{cov_th}|": np.nan,
+            f"nprec_|{cov_th}|": np.nan,
+            "pos_preds": 0,
+            "neg_preds": 0,
+        })
 
-    # probability metrics
-    brier = brier_score_loss(y, p)
-    ll = log_loss(y, p)
-
-    # MCC (needs both classes in y and yhat)
-    mcc = np.nan
-    if (np.unique(y).size > 1) and (np.unique(yhat).size > 1):
-        mcc = matthews_corrcoef(y, yhat)
-
-    # Balanced accuracy (needs both classes in y)
-    bal_acc = np.nan
-    pos_acc = np.nan
-    neg_acc = np.nan
-
-    if np.unique(y).size > 1:
-        bal_acc = balanced_accuracy_score(y, yhat)
-
-        # Positive class accuracy (TPR)
-        pos_mask = (y == 1)
-        if pos_mask.any():
-            pos_acc = float((yhat[pos_mask] == 1).mean())
-
-        # Negative class accuracy (TNR)
-        neg_mask = (y == 0)
-        if neg_mask.any():
-            neg_acc = float((yhat[neg_mask] == 0).mean())
-
-    # confident accuracy + coverage
+    sel = (p >= cov_th) | (p <= (1 - cov_th))
     cov = float(sel.mean())
     acc_conf = float((yhat[sel] == y[sel]).mean()) if sel.any() else np.nan
-    
-    prec_pos_all = np.nan
-    prec_neg_all = np.nan
-    prec_pos_th = np.nan
-    prec_neg_th = np.nan
 
-    # positive-class precision
-    pred_pos = (yhat == 1)
-    pred_pos_count = int((yhat == 1).sum())
-    if pred_pos.any():
-        prec_pos_all = float((y[pred_pos] == 1).mean())   # TP/(TP+FP)
+    # probability metrics: only valid if both classes exist in y
+    brier = np.nan
+    ll = np.nan
+    if np.unique(y).size > 1:
+        brier = float(brier_score_loss(y, p))
+        ll = float(log_loss(y, p))
+    else:
+        # for 1-class y, brier is still computable if you want it:
+        brier = float(np.mean((p - y[0]) ** 2))
 
-    pred_neg = (yhat == 0)
-    pred_neg_count = int((yhat == 0).sum())
-    if pred_neg.any():
-        prec_neg_all = float((y[pred_neg] == 0).mean())   # TN/(TN+FN)
+    # MCC needs both classes in y and yhat
+    mcc = np.nan
+    if (np.unique(y).size > 1) and (np.unique(yhat).size > 1):
+        mcc = float(matthews_corrcoef(y, yhat))
 
-    # positive-class precision
-    pred_pos = (yhat == 1) & sel
-    if pred_pos.any():
-        prec_pos_th = float((y[pred_pos] == 1).mean())
+    # precisions (safe even with 1-class y)
+    pred_pos_mask = (yhat == 1)
+    pred_neg_mask = (yhat == 0)
+    pred_pos_count = int(pred_pos_mask.sum())
+    pred_neg_count = int(pred_neg_mask.sum())
 
-    # negative-class precision
-    pred_neg = (yhat == 0) & sel
-    if pred_neg.any():
-        prec_neg_th = float((y[pred_neg] == 0).mean())
+    prec_pos_all = float((y[pred_pos_mask] == 1).mean()) if pred_pos_mask.any() else np.nan
+    prec_neg_all = float((y[pred_neg_mask] == 0).mean()) if pred_neg_mask.any() else np.nan
+
+    pred_pos_th = pred_pos_mask & sel
+    pred_neg_th = pred_neg_mask & sel
+    prec_pos_th = float((y[pred_pos_th] == 1).mean()) if pred_pos_th.any() else np.nan
+    prec_neg_th = float((y[pred_neg_th] == 0).mean()) if pred_neg_th.any() else np.nan
+
+    # balanced precision: only compute if both sides exist
+    bal_prec = round((prec_pos_all + prec_neg_all) / 2, 2) if np.isfinite(prec_pos_all) and np.isfinite(prec_neg_all) else np.nan
+    bal_prec_th = round((prec_pos_th + prec_neg_th) / 2, 2) if np.isfinite(prec_pos_th) and np.isfinite(prec_neg_th) else np.nan
 
     return pd.Series({
         "pos_rate": float(y.mean()),
         "records": records,
-        "bal_prec": round((prec_pos_all + prec_neg_all) / 2, 2),
-        f"bal_prec_|{cov_th}|": round((prec_pos_th + prec_neg_th) / 2, 2),
-        "brier": float(brier),
-        "log_loss": float(ll),
-        "mcc": float(mcc) if not np.isnan(mcc) else np.nan,
-        "pprec": prec_pos_all, 
+        "bal_prec": bal_prec,
+        f"bal_prec_|{cov_th}|": bal_prec_th,
+        "brier": brier,
+        "log_loss": ll,
+        "mcc": mcc,
+        "pprec": prec_pos_all,
         "nprec": prec_neg_all,
         f"cov_|{cov_th}|": cov,
         f"pprec_|{cov_th}|": prec_pos_th,
