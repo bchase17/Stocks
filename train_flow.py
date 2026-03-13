@@ -13,6 +13,19 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 importlib.reload(min_features)
 importlib.reload(daily_return)
+import boto3 # for aws usage
+s3 = boto3.client("s3")
+
+def download_perf(r):
+
+    local_file = f"h{r}_performance_all.csv"
+    s3_key = f"horizon_{r}/h{r}_performance_all.csv"
+
+    try:
+        s3.download_file("training-hist", s3_key, local_file)
+        print(f"Downloaded: {local_file}")
+    except Exception as e:
+        print(f"Skipped h{r}: {e}")
 
 def import_data(ticker, minute_feats, returns):
 
@@ -422,6 +435,7 @@ def run_train_flow(test_day, days_assessed, returns, pi_handlings, feature_cols,
     perm_df = pd.DataFrame()
     runs = int(days_assessed / test_day)
 
+
     for r in returns:
 
         train_years = train_years
@@ -431,6 +445,13 @@ def run_train_flow(test_day, days_assessed, returns, pi_handlings, feature_cols,
         target_col = f"Return_{r}"
         # Trime unknown (recent) outcomes
         df_final = df.iloc[r:].copy()
+
+        # Override runs with new logic
+        download_perf(r)
+        perf_df = pd.read_csv(f"h{r}_performance_all.csv")
+        min_aod = perf_df['test_start'].min()
+        train_dates = len(df_final[df_final['Date'] >= min_aod])
+        runs = int(train_dates / test_day)
 
         for pi_handling in pi_handlings:
 
